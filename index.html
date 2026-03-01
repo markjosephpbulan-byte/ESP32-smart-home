@@ -1,0 +1,339 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8" />
+  <title>ESP32 Smart Home</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <!-- Force HTTPS -->
+  <meta http-equiv="Content-Security-Policy" content="upgrade-insecure-requests">
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      text-align: center;
+      background-color: #f9f9f9;
+      margin: 0;
+      padding: 0 10px 40px;
+      display: flex;
+      flex-direction: column;
+      min-height: 100vh;
+      justify-content: space-between;
+    }
+    h1 {
+      margin-top: 30px;
+      font-size: 1.8rem;
+    }
+    .relay-card {
+      display: inline-block;
+      background-color: white;
+      padding: 20px;
+      margin: 15px;
+      border-radius: 15px;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+      width: 220px;
+      vertical-align: top;
+    }
+    .relay-card h2 {
+      margin-bottom: 10px;
+      font-size: 1.3rem;
+    }
+    .relay-card p {
+      margin-bottom: 10px;
+      font-size: 1rem;
+    }
+    .relay-card button {
+      padding: 10px 20px;
+      border: none;
+      border-radius: 10px;
+      color: white;
+      background-color: blue;
+      cursor: pointer;
+      font-size: 16px;
+      width: 90%;
+      transition: opacity 0.3s ease;
+    }
+    .relay-card button:hover {
+      opacity: 0.8;
+    }
+    #allOffBtn, #logoutBtn {
+      max-width: 300px;
+      width: 90%;
+      padding: 12px 25px;
+      font-size: 16px;
+      border: none;
+      border-radius: 10px;
+      cursor: pointer;
+      margin: 15px auto;
+      display: block;
+      color: white;
+      transition: opacity 0.3s ease;
+    }
+    #allOffBtn {
+      background-color: #d32f2f;
+    }
+    #allOffBtn:hover {
+      opacity: 0.8;
+    }
+    #logoutBtn {
+      background-color: #555;
+    }
+    #logoutBtn:hover {
+      opacity: 0.8;
+    }
+
+    /* Responsive layout */
+    #dashboard {
+      display: none;
+    }
+    #loginForm {
+      max-width: 400px;
+      margin: 80px auto 20px;
+      background: white;
+      padding: 30px 20px;
+      border-radius: 15px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    }
+    #loginForm input {
+      width: 100%;
+      padding: 12px 15px;
+      margin: 10px 0 20px;
+      font-size: 1rem;
+      border: 1.5px solid #ccc;
+      border-radius: 10px;
+      box-sizing: border-box;
+      outline-offset: 2px;
+      transition: border-color 0.3s ease;
+    }
+    #loginForm input:focus {
+      border-color: #1e88e5;
+    }
+    #loginForm button {
+      width: 100%;
+      background-color: #1e88e5;
+      color: white;
+      padding: 12px;
+      font-size: 18px;
+      border: none;
+      border-radius: 10px;
+      cursor: pointer;
+      transition: background-color 0.3s ease;
+    }
+    #loginForm button:hover {
+      background-color: #1565c0;
+    }
+    #dashboard .relay-container {
+      max-width: 960px;
+      margin: 20px auto 0;
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+    /* Smaller devices */
+    @media (max-width: 700px) {
+      .relay-card {
+        width: 90%;
+        margin: 10px auto;
+        display: block;
+      }
+      body {
+        padding: 0 10px 60px;
+      }
+    }
+    footer {
+      font-size: 0.9rem;
+      color: #666;
+      padding: 10px 0;
+      margin-top: 40px;
+    }
+    .warning {
+      background-color: #fff3cd;
+      color: #856404;
+      padding: 10px;
+      border-radius: 5px;
+      margin: 10px auto;
+      max-width: 500px;
+    }
+  </style>
+</head>
+<body>
+
+  <h1>ESP32 Smart Home</h1>
+
+  <!-- Security notice -->
+  <div id="securityNotice" class="warning" style="display:none;"></div>
+
+  <!-- Login form -->
+  <div id="loginForm">
+    <input type="email" id="email" placeholder="Enter Email" required />
+    <input type="password" id="password" placeholder="Enter Password" required />
+    <button id="loginBtn">Login</button>
+  </div>
+
+  <!-- Dashboard -->
+  <div id="dashboard">
+    <div class="relay-container">
+      <div class="relay-card">
+        <h2>Relay 1</h2>
+        <p>Status: <span id="status1">Loading...</span></p>
+        <button id="btn1">Toggle</button>
+      </div>
+      <!-- Add more relays as needed -->
+      <!--
+      <div class="relay-card">
+        <h2>Relay 2</h2>
+        <p>Status: <span id="status2">Loading...</span></p>
+        <button id="btn2">Toggle</button>
+      </div>
+      <div class="relay-card">
+        <h2>Relay 3</h2>
+        <p>Status: <span id="status3">Loading...</span></p>
+        <button id="btn3">Toggle</button>
+      </div>
+      <div class="relay-card">
+        <h2>Relay 4</h2>
+        <p>Status: <span id="status4">Loading...</span></p>
+        <button id="btn4">Toggle</button>
+      </div>
+      -->
+    </div>
+    
+    <button id="allOffBtn">ALL OFF</button>
+    <button id="logoutBtn">Logout</button>
+  </div>
+
+  <footer>
+    Smart Home Testing by Engr. Mark
+  </footer>
+
+  <!-- Firebase SDKs -->
+  <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-database-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-auth-compat.js"></script>
+  
+  <!-- Load configuration from separate file (not tracked by git) -->
+  <script src="config.js"></script>
+
+  <script>
+    // No firebaseConfig here - it's loaded from config.js!
+    
+    // DOM elements
+    const loginForm = document.getElementById("loginForm");
+    const dashboard = document.getElementById("dashboard");
+    const loginBtn = document.getElementById("loginBtn");
+    const securityNotice = document.getElementById("securityNotice");
+    const logoutBtn = document.getElementById("logoutBtn");
+    const allOffBtn = document.getElementById("allOffBtn");
+
+    // Check if we're on GitHub Pages
+    if (window.location.hostname.includes('github.io')) {
+      console.log("Running on GitHub Pages - API key is restricted to this domain");
+    }
+
+    // Check for HTTPS
+    if (window.location.protocol !== 'https:' && window.location.hostname !== 'localhost') {
+      securityNotice.style.display = 'block';
+      securityNotice.innerHTML = '⚠️ Warning: Not using HTTPS. Please use HTTPS for security.';
+    }
+
+    // Login function
+    loginBtn.addEventListener("click", async () => {
+      const email = document.getElementById("email").value.trim();
+      const password = document.getElementById("password").value;
+
+      if (!email || !password) {
+        alert("Please enter email and password.");
+        return;
+      }
+
+      try {
+        // Use Firebase Authentication properly - no hardcoded passwords!
+        const userCredential = await firebase.auth().signInWithEmailAndPassword(email, password);
+        console.log("Signed in as", userCredential.user.email);
+        
+        // Check if user is authorized
+        if (email === "kramhpesoj@gmail.com") {
+          loginForm.style.display = "none";
+          dashboard.style.display = "block";
+          startRelayControl();
+        } else {
+          alert("Unauthorized email. Please use authorized account.");
+          firebase.auth().signOut();
+        }
+      } catch (error) {
+        alert("Login failed: " + error.message);
+      }
+    });
+
+    // Check if user is already logged in
+    firebase.auth().onAuthStateChanged((user) => {
+      if (user) {
+        if (user.email === "kramhpesoj@gmail.com") {
+          loginForm.style.display = "none";
+          dashboard.style.display = "block";
+          startRelayControl();
+        } else {
+          firebase.auth().signOut();
+        }
+      }
+    });
+
+    // Relay control function
+    function startRelayControl() {
+      const db = firebase.database();
+
+      const relays = [
+        { id: 1, path: "relay1" },
+        { id: 2, path: "relay2" },
+        { id: 3, path: "relay3" },
+        { id: 4, path: "relay4" },
+      ];
+
+      relays.forEach(relay => {
+        const statusText = document.getElementById(`status${relay.id}`);
+        const toggleButton = document.getElementById(`btn${relay.id}`);
+        
+        // Skip if button doesn't exist (for unused relays)
+        if (!toggleButton) return;
+        
+        const relayRef = db.ref("/" + relay.path);
+
+        relayRef.on("value", (snapshot) => {
+          const state = snapshot.val();
+          statusText.innerText = state ? "ON" : "OFF";
+          toggleButton.style.backgroundColor = state ? "green" : "blue";
+        });
+
+        toggleButton.onclick = () => {
+          relayRef.get().then(snap => {
+            relayRef.set(!snap.val());
+          });
+        };
+      });
+
+      // All Off button
+      if (allOffBtn) {
+        allOffBtn.onclick = () => {
+          relays.forEach(relay => {
+            db.ref("/" + relay.path).set(false);
+          });
+        };
+      }
+    }
+
+    // Logout function
+    if (logoutBtn) {
+      logoutBtn.onclick = () => {
+        firebase.auth().signOut()
+          .then(() => {
+            dashboard.style.display = "none";
+            loginForm.style.display = "block";
+            document.getElementById("email").value = "";
+            document.getElementById("password").value = "";
+          })
+          .catch(error => {
+            alert("Logout failed: " + error.message);
+          });
+      };
+    }
+  </script>
+</body>
+</html>
